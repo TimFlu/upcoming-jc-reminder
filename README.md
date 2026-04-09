@@ -52,7 +52,7 @@ Your current workbook already matches that shape: first column = date, second co
 
 The script at `scripts/generate_upcoming_reminder.py` reads the file, finds rows whose date falls within the next 7 days, skips placeholder presenters such as `--`, and writes them to `reminders/upcoming.md`.
 
-The GitHub Actions workflow at `.github/workflows/create-upcoming-reminder-pr.yml` runs every Monday at 08:00 UTC and opens or updates a pull request if the generated reminder file changed.
+The GitHub Actions workflow at `.github/workflows/create-upcoming-reminder-pr.yml` runs every Monday at 08:00 UTC and opens or updates a pull request if the generated reminder file changed. The pull request title includes the next presenter and date so notification previews are more useful in Teams.
 
 ### Workflow configuration
 

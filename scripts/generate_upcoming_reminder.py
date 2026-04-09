@@ -51,6 +51,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Override today's date in YYYY-MM-DD format for testing.",
     )
+    parser.add_argument(
+        "--github-output",
+        default=None,
+        help="Optional path to a GitHub Actions output file.",
+    )
     return parser.parse_args()
 
 
@@ -168,6 +173,54 @@ def build_output(upcoming: list[dict[str, str | int | date]], start: date, end: 
     return "\n".join(lines)
 
 
+def build_pr_metadata(
+    upcoming: list[dict[str, str | int | date]],
+    start: date,
+    end: date,
+) -> tuple[str, str, str]:
+    if upcoming:
+        first = upcoming[0]
+        presenter = str(first["person_name"])
+        target_date = str(first["target_date"])
+        title = f"Upcoming JC: {presenter} on {target_date}"
+        commit_message = f"Update reminder for {presenter} on {target_date}"
+
+        body_lines = [
+            f"Upcoming JC presenter: **{presenter}**",
+            "",
+            f"Scheduled date: **{target_date}**",
+        ]
+        paper = str(first.get("paper_title", "")).strip()
+        if paper:
+            body_lines.extend(["", f"Paper/topic: {paper}"])
+
+        body_lines.extend(
+            [
+                "",
+                f"This automated PR covers reminders from {start} through {end}.",
+                "",
+                "See `reminders/upcoming.md` for the full window.",
+            ]
+        )
+        return title, "\n".join(body_lines), commit_message
+
+    title = f"No upcoming JC presenter for {start} to {end}"
+    body = (
+        f"No presenter is scheduled in the reminder window from {start} through {end}.\n\n"
+        "This automated PR updates the tracked reminder file for visibility."
+    )
+    commit_message = f"Update reminder window for {start} to {end}"
+    return title, body, commit_message
+
+
+def write_github_output(path: Path, title: str, body: str, commit_message: str) -> None:
+    eof = "CODEX_EOF"
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(f"pr_title={title}\n")
+        handle.write(f"commit_message={commit_message}\n")
+        handle.write(f"pr_body<<{eof}\n{body}\n{eof}\n")
+
+
 def main() -> None:
     args = parse_args()
     input_path = Path(args.input)
@@ -203,13 +256,17 @@ def main() -> None:
                     "target_date": target_date,
                     "person_name": person_name,
                     "days_remaining": days_remaining,
+                    "paper_title": str(row.get("Paper", "")).strip(),
                 }
             )
 
     upcoming.sort(key=lambda row: (row["target_date"], row["person_name"]))
+    pr_title, pr_body, commit_message = build_pr_metadata(upcoming, today, window_end)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(build_output(upcoming, today, window_end), encoding="utf-8")
+    if args.github_output:
+        write_github_output(Path(args.github_output), pr_title, pr_body, commit_message)
 
 
 if __name__ == "__main__":
