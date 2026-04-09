@@ -2,7 +2,7 @@ name: Create upcoming reminder PR
 
 on:
   schedule:
-    - cron: "15 12 * * 4"
+    - cron: "38,43,48,53,58 * * * 4"
   workflow_dispatch:
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
         id: reminder
         run: >
           python scripts/generate_upcoming_reminder.py
-          --input "${{ vars.REMINDER_INPUT_PATH || 'data/JC schedule.xlsx' }}"
+          --input "${{ vars.REMINDER_INPUT_PATH || 'data/JC test schedule.csv' }}"
           --output "${{ vars.REMINDER_OUTPUT_PATH || 'reminders/upcoming.md' }}"
           --status-output "${{ vars.REMINDER_STATUS_OUTPUT_PATH || 'reminders/last-run.md' }}"
           --date-column "${{ vars.REMINDER_DATE_COLUMN || 'Date' }}"

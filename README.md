@@ -1,62 +1,32 @@
-# Personal Finance Dashboard
+# JC Test Scheduling
 
-A small Streamlit app for exploring bank exports from Excel or CSV files.
+This repository exists only to generate a weekly GitHub pull request for the upcoming Journal Club presenter.
 
-## Features
+## Source file
 
-- Upload `.csv`, `.xlsx`, or `.xls` files
-- Map your bank's date, description, and amount columns
-- Summarize income, expenses, and net balance
-- View monthly trends and category breakdowns
-- Create your own grouping rules based on transaction text
-- Manually adjust categories in the transaction table
+The schedule is stored in [data/JC test schedule.csv](/Users/tflueh/Documents/Playground/data/JC%20test%20schedule.csv).
 
-## Run locally
+Expected columns:
 
-1. Install dependencies:
+- `Date`
+- `Presenter`
+- `Paper`
 
-```bash
-pip install -r requirements.txt
-```
+Rows with presenter `--` are ignored.
 
-2. Start the app:
+## What the automation does
 
-```bash
-streamlit run app.py
-```
+The script at [scripts/generate_upcoming_reminder.py](/Users/tflueh/Documents/Playground/scripts/generate_upcoming_reminder.py):
 
-## Expected input
+- reads the CSV schedule
+- finds presenters in the next 7 days
+- writes [reminders/upcoming.md](/Users/tflueh/Documents/Playground/reminders/upcoming.md)
+- writes [reminders/last-run.md](/Users/tflueh/Documents/Playground/reminders/last-run.md)
+- sets the PR title/body so Teams notifications show the presenter and date
 
-The app works best when your export includes:
+The workflow at [.github/workflows/create-upcoming-reminder-pr.yml](/Users/tflueh/Documents/Playground/.github/workflows/create-upcoming-reminder-pr.yml) runs every Thursday at minutes `:38`, `:43`, `:48`, `:53`, and `:58` of each hour in `UTC`.
 
-- a transaction date column
-- a text or description column
-- either one signed amount column or separate income and expense columns
-
-If your bank uses different names, you can remap them in the sidebar.
-
-## Weekly reminder PR automation
-
-This repository can also automatically open a GitHub pull request each week based on a CSV or Excel file that contains dates and names.
-
-### File format
-
-Store your reminders in `data/JC schedule.xlsx` or point the workflow to another `.csv` or `.xlsx` file. For your workbook, the script expects:
-
-- a `Date` column
-- a `Presenter` column
-
-Your current workbook already matches that shape: first column = date, second column = presenter.
-
-### How it works
-
-The script at `scripts/generate_upcoming_reminder.py` reads the file, finds rows whose date falls within the next 7 days, skips placeholder presenters such as `--`, and writes them to `reminders/upcoming.md`. It also writes a run-status file to `reminders/last-run.md` so each scheduled run produces a visible repository change for the PR workflow.
-
-The GitHub Actions workflow at `.github/workflows/create-upcoming-reminder-pr.yml` runs every Thursday at 12:15 UTC, which is 14:15 CEST in Zurich, and opens or updates a pull request if the generated reminder file changed. The pull request title includes the next presenter and date so notification previews are more useful in Teams.
-
-### Workflow configuration
-
-You can customize the workflow with GitHub Actions repository variables:
+## Optional repository variables
 
 - `REMINDER_INPUT_PATH`
 - `REMINDER_OUTPUT_PATH`
@@ -65,4 +35,4 @@ You can customize the workflow with GitHub Actions repository variables:
 - `REMINDER_NAME_COLUMN`
 - `REMINDER_LOOKAHEAD_DAYS`
 
-The current defaults already match `data/JC schedule.xlsx`, `Date`, and `Presenter`.
+The current defaults already match the CSV in this repository.
