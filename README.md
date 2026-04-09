@@ -41,22 +41,16 @@ This repository can also automatically open a GitHub pull request each week base
 
 ### File format
 
-Store your reminders in `data/events.csv` or point the workflow to another `.csv`, `.xlsx`, or `.xls` file. By default the script expects:
+Store your reminders in `data/JC schedule.xlsx` or point the workflow to another `.csv` or `.xlsx` file. For your workbook, the script expects:
 
-- a `date` column
-- a `name` column
+- a `Date` column
+- a `Presenter` column
 
-Example:
-
-```csv
-date,name
-2026-04-12,Alice
-2026-04-15,Bob
-```
+Your current workbook already matches that shape: first column = date, second column = presenter.
 
 ### How it works
 
-The script at `scripts/generate_upcoming_reminder.py` reads the file, finds rows whose date falls within the next 7 days, and writes them to `reminders/upcoming.md`.
+The script at `scripts/generate_upcoming_reminder.py` reads the file, finds rows whose date falls within the next 7 days, skips placeholder presenters such as `--`, and writes them to `reminders/upcoming.md`.
 
 The GitHub Actions workflow at `.github/workflows/create-upcoming-reminder-pr.yml` runs every Monday at 08:00 UTC and opens or updates a pull request if the generated reminder file changed.
 
@@ -70,4 +64,4 @@ You can customize the workflow with GitHub Actions repository variables:
 - `REMINDER_NAME_COLUMN`
 - `REMINDER_LOOKAHEAD_DAYS`
 
-If you want to use Excel instead of CSV, upload the workbook to the repository and set `REMINDER_INPUT_PATH` to its path.
+The current defaults already match `data/JC schedule.xlsx`, `Date`, and `Presenter`.

@@ -22,16 +22,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: pip install openpyxl
-
       - name: Generate upcoming reminder file
         run: >
           python scripts/generate_upcoming_reminder.py
-          --input "${{ vars.REMINDER_INPUT_PATH || 'data/events.csv' }}"
+          --input "${{ vars.REMINDER_INPUT_PATH || 'data/JC schedule.xlsx' }}"
           --output "${{ vars.REMINDER_OUTPUT_PATH || 'reminders/upcoming.md' }}"
-          --date-column "${{ vars.REMINDER_DATE_COLUMN || 'date' }}"
-          --name-column "${{ vars.REMINDER_NAME_COLUMN || 'name' }}"
+          --date-column "${{ vars.REMINDER_DATE_COLUMN || 'Date' }}"
+          --name-column "${{ vars.REMINDER_NAME_COLUMN || 'Presenter' }}"
           --lookahead-days "${{ vars.REMINDER_LOOKAHEAD_DAYS || '7' }}"
 
       - name: Create or update pull request

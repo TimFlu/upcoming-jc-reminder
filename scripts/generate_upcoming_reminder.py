@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import argparse
 import csv
+import zipfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 
-DEFAULT_INPUT = "data/events.csv"
+DEFAULT_INPUT = "data/JC schedule.xlsx"
 DEFAULT_OUTPUT = "reminders/upcoming.md"
+EXCEL_EPOCH = date(1899, 12, 30)
+XML_NS = {
+    "main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -26,12 +32,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--date-column",
-        default="date",
+        default="Date",
         help="Column containing the target date.",
     )
     parser.add_argument(
         "--name-column",
-        default="name",
+        default="Presenter",
         help="Column containing the name to mention.",
     )
     parser.add_argument(
@@ -52,37 +58,76 @@ def load_table(path: Path) -> list[dict[str, str]]:
     if path.suffix.lower() == ".csv":
         with path.open(newline="", encoding="utf-8") as handle:
             return list(csv.DictReader(handle))
-    if path.suffix.lower() in {".xlsx", ".xls"}:
-        try:
-            from openpyxl import load_workbook
-        except ImportError as exc:
-            raise RuntimeError(
-                "Excel support requires openpyxl. Install it or use a CSV file."
-            ) from exc
-
-        workbook = load_workbook(filename=path, read_only=True, data_only=True)
-        sheet = workbook.active
-        rows = list(sheet.iter_rows(values_only=True))
-        if not rows:
-            return []
-
-        headers = [str(cell).strip() if cell is not None else "" for cell in rows[0]]
-        output: list[dict[str, str]] = []
-
-        for row in rows[1:]:
-            entry: dict[str, str] = {}
-            for header, value in zip(headers, row):
-                entry[header] = "" if value is None else str(value)
-            output.append(entry)
-
-        return output
+    if path.suffix.lower() == ".xlsx":
+        return load_xlsx_table(path)
     raise ValueError(f"Unsupported file type: {path.suffix}")
+
+
+def load_xlsx_table(path: Path) -> list[dict[str, str]]:
+    with zipfile.ZipFile(path) as archive:
+        shared_strings = load_shared_strings(archive)
+        sheet_path = find_first_sheet_path(archive)
+        sheet_root = ET.fromstring(archive.read(sheet_path))
+
+    rows: list[list[str]] = []
+    for row in sheet_root.findall(".//main:sheetData/main:row", XML_NS):
+        values: list[str] = []
+        for cell in row.findall("main:c", XML_NS):
+            cell_type = cell.attrib.get("t")
+            value_node = cell.find("main:v", XML_NS)
+            value = "" if value_node is None or value_node.text is None else value_node.text
+            if cell_type == "s" and value:
+                value = shared_strings[int(value)]
+            values.append(value)
+        rows.append(values)
+
+    if not rows:
+        return []
+
+    headers = [str(cell).strip() for cell in rows[0]]
+    output: list[dict[str, str]] = []
+    for row in rows[1:]:
+        entry: dict[str, str] = {}
+        for index, header in enumerate(headers):
+            entry[header] = row[index] if index < len(row) else ""
+        output.append(entry)
+    return output
+
+
+def load_shared_strings(archive: zipfile.ZipFile) -> list[str]:
+    if "xl/sharedStrings.xml" not in archive.namelist():
+        return []
+
+    root = ET.fromstring(archive.read("xl/sharedStrings.xml"))
+    shared_strings: list[str] = []
+    for item in root.findall("main:si", XML_NS):
+        parts = [node.text or "" for node in item.findall(".//main:t", XML_NS)]
+        shared_strings.append("".join(parts))
+    return shared_strings
+
+
+def find_first_sheet_path(archive: zipfile.ZipFile) -> str:
+    workbook_root = ET.fromstring(archive.read("xl/workbook.xml"))
+    workbook_rels = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
+    rel_map = {rel.attrib["Id"]: rel.attrib["Target"] for rel in workbook_rels}
+
+    first_sheet = workbook_root.find("main:sheets", XML_NS)[0]
+    rel_id = first_sheet.attrib[
+        "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+    ]
+    target = rel_map[rel_id]
+    if not target.startswith("xl/"):
+        target = f"xl/{target.lstrip('/')}"
+    return target
 
 
 def parse_date(value: str) -> date | None:
     text = str(value or "").strip()
     if not text:
         return None
+
+    if text.isdigit():
+        return EXCEL_EPOCH + timedelta(days=int(text))
 
     for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%m/%d/%Y"):
         try:
@@ -109,7 +154,7 @@ def build_output(upcoming: list[dict[str, str | int | date]], start: date, end: 
         lines.append("")
         return "\n".join(lines)
 
-    lines.append("| Date | Name | Days remaining |")
+    lines.append("| Date | Presenter | Days remaining |")
     lines.append("| --- | --- | ---: |")
 
     for row in upcoming:
@@ -118,7 +163,7 @@ def build_output(upcoming: list[dict[str, str | int | date]], start: date, end: 
         )
 
     lines.append("")
-    lines.append("Please review the upcoming names and dates before merging.")
+    lines.append("Please review the upcoming presenters and dates before merging.")
     lines.append("")
     return "\n".join(lines)
 
@@ -148,7 +193,7 @@ def main() -> None:
     for row in rows:
         target_date = parse_date(row.get(args.date_column, ""))
         person_name = str(row.get(args.name_column, "")).strip()
-        if target_date is None or not person_name:
+        if target_date is None or not person_name or person_name == "--":
             continue
 
         days_remaining = (target_date - today).days
