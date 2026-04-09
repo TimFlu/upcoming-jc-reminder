@@ -1,0 +1,49 @@
+name: Create upcoming reminder PR
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-reminder-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install openpyxl
+
+      - name: Generate upcoming reminder file
+        run: >
+          python scripts/generate_upcoming_reminder.py
+          --input "${{ vars.REMINDER_INPUT_PATH || 'data/events.csv' }}"
+          --output "${{ vars.REMINDER_OUTPUT_PATH || 'reminders/upcoming.md' }}"
+          --date-column "${{ vars.REMINDER_DATE_COLUMN || 'date' }}"
+          --name-column "${{ vars.REMINDER_NAME_COLUMN || 'name' }}"
+          --lookahead-days "${{ vars.REMINDER_LOOKAHEAD_DAYS || '7' }}"
+
+      - name: Create or update pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "Update upcoming reminders"
+          title: "Upcoming reminders for this week"
+          body: |
+            This automated PR refreshes the reminder file for the next scheduled window.
+
+            It lists the names and dates that are coming up soon from the configured CSV or Excel source.
+          branch: automation/upcoming-reminders
+          delete-branch: true
+          add-paths: |
+            reminders/upcoming.md
