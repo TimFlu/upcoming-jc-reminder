@@ -28,7 +28,18 @@ def parse_args() -> argparse.Namespace:
 
 def load_rows(path: Path) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8-sig") as handle:
-        return list(csv.DictReader(handle))
+        rows = list(csv.DictReader(handle))
+
+    for row in rows:
+        extras = row.get(None) or []
+        if extras:
+            paper = str(row.get("Paper", "")).strip()
+            extra_text = ", ".join(part.strip() for part in extras if str(part).strip())
+            combined = ", ".join(part for part in [paper, extra_text] if part)
+            row["Paper"] = combined
+            row.pop(None, None)
+
+    return rows
 
 
 def parse_date(value: str) -> date | None:
@@ -120,15 +131,15 @@ def build_issue_metadata(
         title = f"JC reminder: {presenter} on {target_date}"
 
         body_lines = [
-            "Please specify the name of your paper / work if it is still missing.",
-            "",
             f"Next presenter: **{presenter}**",
             f"Next date: **{target_date}**",
         ]
         if paper:
             body_lines.append(f"Next paper / work: **{paper}**")
         else:
-            body_lines.append("Next paper / work: **Please add paper title**")
+            body_lines.append(
+                "Next paper / work: **Missing. Please specify the paper / work title.**"
+            )
 
         if len(future_presenters) > 1:
             second = future_presenters[1]
@@ -145,7 +156,9 @@ def build_issue_metadata(
             if second_paper:
                 body_lines.append(f"Following paper / work: **{second_paper}**")
             else:
-                body_lines.append("Following paper / work: **Please add paper title**")
+                body_lines.append(
+                    "Following paper / work: **Missing. Please specify the paper / work title.**"
+                )
         body_lines.extend(
             [
                 "",

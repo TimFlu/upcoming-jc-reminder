@@ -23,7 +23,7 @@ The script at [scripts/generate_upcoming_reminder.py](/Users/tflueh/Documents/Pl
 - writes local reminder files for inspection
 - generates an issue title and issue body for GitHub Actions
 
-The workflow at [.github/workflows/create-upcoming-reminder-pr.yml](/Users/tflueh/Documents/Playground/.github/workflows/create-upcoming-reminder-pr.yml) runs every Thursday at minutes `:38`, `:43`, `:48`, `:53`, and `:58` of each hour in `UTC` and creates or updates an issue labeled `jc-reminder`.
+The workflow at [.github/workflows/create-upcoming-reminder-pr.yml](/Users/tflueh/Documents/Playground/.github/workflows/create-upcoming-reminder-pr.yml) runs every day at `07:00 UTC`, which is `09:00 CEST` in Zurich during summer time, and creates a fresh issue labeled `jc-reminder`.
 
 ## Optional repository variables
 
