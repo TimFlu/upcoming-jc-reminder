@@ -28,6 +28,7 @@ jobs:
           python scripts/generate_upcoming_reminder.py
           --input "${{ vars.REMINDER_INPUT_PATH || 'data/JC schedule.xlsx' }}"
           --output "${{ vars.REMINDER_OUTPUT_PATH || 'reminders/upcoming.md' }}"
+          --status-output "${{ vars.REMINDER_STATUS_OUTPUT_PATH || 'reminders/last-run.md' }}"
           --date-column "${{ vars.REMINDER_DATE_COLUMN || 'Date' }}"
           --name-column "${{ vars.REMINDER_NAME_COLUMN || 'Presenter' }}"
           --lookahead-days "${{ vars.REMINDER_LOOKAHEAD_DAYS || '7' }}"
@@ -42,4 +43,5 @@ jobs:
           branch: automation/upcoming-reminders
           delete-branch: true
           add-paths: |
+            reminders/last-run.md
             reminders/upcoming.md

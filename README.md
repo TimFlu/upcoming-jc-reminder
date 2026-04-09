@@ -50,7 +50,7 @@ Your current workbook already matches that shape: first column = date, second co
 
 ### How it works
 
-The script at `scripts/generate_upcoming_reminder.py` reads the file, finds rows whose date falls within the next 7 days, skips placeholder presenters such as `--`, and writes them to `reminders/upcoming.md`.
+The script at `scripts/generate_upcoming_reminder.py` reads the file, finds rows whose date falls within the next 7 days, skips placeholder presenters such as `--`, and writes them to `reminders/upcoming.md`. It also writes a run-status file to `reminders/last-run.md` so each scheduled run produces a visible repository change for the PR workflow.
 
 The GitHub Actions workflow at `.github/workflows/create-upcoming-reminder-pr.yml` runs every Thursday at 12:15 UTC, which is 14:15 CEST in Zurich, and opens or updates a pull request if the generated reminder file changed. The pull request title includes the next presenter and date so notification previews are more useful in Teams.
 
@@ -60,6 +60,7 @@ You can customize the workflow with GitHub Actions repository variables:
 
 - `REMINDER_INPUT_PATH`
 - `REMINDER_OUTPUT_PATH`
+- `REMINDER_STATUS_OUTPUT_PATH`
 - `REMINDER_DATE_COLUMN`
 - `REMINDER_NAME_COLUMN`
 - `REMINDER_LOOKAHEAD_DAYS`

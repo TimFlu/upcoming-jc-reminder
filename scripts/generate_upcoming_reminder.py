@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 
 DEFAULT_INPUT = "data/JC schedule.xlsx"
 DEFAULT_OUTPUT = "reminders/upcoming.md"
+DEFAULT_STATUS_OUTPUT = "reminders/last-run.md"
 EXCEL_EPOCH = date(1899, 12, 30)
 XML_NS = {
     "main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
@@ -29,6 +30,11 @@ def parse_args() -> argparse.Namespace:
         "--output",
         default=DEFAULT_OUTPUT,
         help="Path to the generated markdown file.",
+    )
+    parser.add_argument(
+        "--status-output",
+        default=DEFAULT_STATUS_OUTPUT,
+        help="Path to the generated status markdown file.",
     )
     parser.add_argument(
         "--date-column",
@@ -213,6 +219,34 @@ def build_pr_metadata(
     return title, body, commit_message
 
 
+def build_status_output(
+    upcoming: list[dict[str, str | int | date]],
+    start: date,
+    end: date,
+    generated_at: datetime,
+) -> str:
+    lines = [
+        "# Reminder workflow status",
+        "",
+        f"Generated at: {generated_at.strftime('%Y-%m-%d %H:%M:%S UTC')}",
+        f"Window: {start} through {end}",
+        "",
+    ]
+
+    if upcoming:
+        first = upcoming[0]
+        lines.append(f"Next presenter: {first['person_name']}")
+        lines.append(f"Next date: {first['target_date']}")
+        paper = str(first.get("paper_title", "")).strip()
+        if paper:
+            lines.append(f"Paper/topic: {paper}")
+    else:
+        lines.append("Next presenter: none in this window")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
 def write_github_output(path: Path, title: str, body: str, commit_message: str) -> None:
     eof = "CODEX_EOF"
     with path.open("a", encoding="utf-8") as handle:
@@ -225,6 +259,7 @@ def main() -> None:
     args = parse_args()
     input_path = Path(args.input)
     output_path = Path(args.output)
+    status_output_path = Path(args.status_output)
 
     rows = load_table(input_path)
     if rows:
@@ -262,9 +297,15 @@ def main() -> None:
 
     upcoming.sort(key=lambda row: (row["target_date"], row["person_name"]))
     pr_title, pr_body, commit_message = build_pr_metadata(upcoming, today, window_end)
+    generated_at = datetime.utcnow()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(build_output(upcoming, today, window_end), encoding="utf-8")
+    status_output_path.parent.mkdir(parents=True, exist_ok=True)
+    status_output_path.write_text(
+        build_status_output(upcoming, today, window_end, generated_at),
+        encoding="utf-8",
+    )
     if args.github_output:
         write_github_output(Path(args.github_output), pr_title, pr_body, commit_message)
 
