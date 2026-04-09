@@ -1,4 +1,4 @@
-name: Create upcoming reminder PR
+name: Create upcoming reminder issue
 
 on:
   schedule:
@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  issues: write
 
 jobs:
-  create-reminder-pr:
+  create-reminder-issue:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Generate upcoming reminder file
+      - name: Generate upcoming reminder text
         id: reminder
         run: >
           python scripts/generate_upcoming_reminder.py
@@ -34,14 +34,60 @@ jobs:
           --lookahead-days "${{ vars.REMINDER_LOOKAHEAD_DAYS || '7' }}"
           --github-output "$GITHUB_OUTPUT"
 
-      - name: Create or update pull request
-        uses: peter-evans/create-pull-request@v7
+      - name: Create or update reminder issue
+        uses: actions/github-script@v7
+        env:
+          ISSUE_TITLE: ${{ steps.reminder.outputs.issue_title }}
+          ISSUE_BODY: ${{ steps.reminder.outputs.issue_body }}
         with:
-          commit-message: ${{ steps.reminder.outputs.commit_message }}
-          title: ${{ steps.reminder.outputs.pr_title }}
-          body: ${{ steps.reminder.outputs.pr_body }}
-          branch: automation/upcoming-reminders
-          delete-branch: true
-          add-paths: |
-            reminders/last-run.md
-            reminders/upcoming.md
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const label = "jc-reminder";
+            const title = process.env.ISSUE_TITLE;
+            const body = process.env.ISSUE_BODY;
+
+            const { data: labels } = await github.rest.issues.listLabelsForRepo({
+              owner,
+              repo,
+              per_page: 100,
+            });
+
+            if (!labels.some((item) => item.name === label)) {
+              await github.rest.issues.createLabel({
+                owner,
+                repo,
+                name: label,
+                color: "1d76db",
+                description: "Automated JC reminder issues",
+              });
+            }
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: "open",
+              labels: label,
+              per_page: 100,
+            });
+
+            const existing = issues.find((issue) => issue.title === title);
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body,
+              });
+              core.info(`Updated issue #${existing.number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body,
+                labels: [label],
+              });
+              core.info(`Created issue #${created.data.number}`);
+            }

@@ -13,7 +13,7 @@ DEFAULT_STATUS_OUTPUT = "reminders/last-run.md"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate reminder files for upcoming JC presenters."
+        description="Generate reminder files and issue text for upcoming JC presenters."
     )
     parser.add_argument("--input", default=DEFAULT_INPUT)
     parser.add_argument("--output", default=DEFAULT_OUTPUT)
@@ -69,7 +69,7 @@ def build_upcoming_output(
         )
 
     lines.append("")
-    lines.append("Please review the upcoming presenters and dates before merging.")
+    lines.append("Please review the upcoming presenters and dates.")
     lines.append("")
     return "\n".join(lines)
 
@@ -78,12 +78,10 @@ def build_status_output(
     upcoming: list[dict[str, str | int | date]],
     start: date,
     end: date,
-    generated_at: datetime,
 ) -> str:
     lines = [
         "# Reminder workflow status",
         "",
-        f"Generated at: {generated_at.strftime('%Y-%m-%d %H:%M:%S UTC')}",
         f"Window: {start} through {end}",
         "",
     ]
@@ -102,51 +100,59 @@ def build_status_output(
     return "\n".join(lines)
 
 
-def build_pr_metadata(
+def build_issue_metadata(
     upcoming: list[dict[str, str | int | date]],
     start: date,
     end: date,
-) -> tuple[str, str, str]:
+) -> tuple[str, str]:
     if upcoming:
         first = upcoming[0]
         presenter = str(first["person_name"])
         target_date = str(first["target_date"])
-        title = f"Upcoming JC: {presenter} on {target_date}"
-        commit_message = f"Update reminder for {presenter} on {target_date}"
+        paper = str(first.get("paper_title", "")).strip()
+
+        if paper:
+            title = (
+                f"This week on {target_date}, {presenter} will present the paper / work {paper}"
+            )
+        else:
+            title = f"This week on {target_date}, {presenter} will present"
 
         body_lines = [
-            f"Upcoming JC presenter: **{presenter}**",
-            "",
-            f"Scheduled date: **{target_date}**",
+            f"Presenter: **{presenter}**",
+            f"Date: **{target_date}**",
         ]
-        paper = str(first.get("paper_title", "")).strip()
         if paper:
-            body_lines.extend(["", f"Paper/topic: {paper}"])
+            body_lines.append(f"Paper / work: **{paper}**")
         body_lines.extend(
             [
                 "",
-                f"This automated PR covers reminders from {start} through {end}.",
+                f"Reminder window: {start} through {end}",
                 "",
-                "See `reminders/upcoming.md` for the full window.",
+                "Upcoming presenters in this window:",
             ]
         )
-        return title, "\n".join(body_lines), commit_message
+        for row in upcoming:
+            line = f"- {row['target_date']}: {row['person_name']}"
+            paper_title = str(row.get("paper_title", "")).strip()
+            if paper_title:
+                line += f" — {paper_title}"
+            body_lines.append(line)
+
+        return title, "\n".join(body_lines)
 
     title = f"No upcoming JC presenter for {start} to {end}"
     body = (
-        f"No presenter is scheduled in the reminder window from {start} through {end}.\n\n"
-        "This automated PR updates the tracked reminder files for visibility."
+        f"No presenter is scheduled in the reminder window from {start} through {end}."
     )
-    commit_message = f"Update reminder window for {start} to {end}"
-    return title, body, commit_message
+    return title, body
 
 
-def write_github_output(path: Path, title: str, body: str, commit_message: str) -> None:
+def write_github_output(path: Path, issue_title: str, issue_body: str) -> None:
     eof = "CODEX_EOF"
     with path.open("a", encoding="utf-8") as handle:
-        handle.write(f"pr_title={title}\n")
-        handle.write(f"commit_message={commit_message}\n")
-        handle.write(f"pr_body<<{eof}\n{body}\n{eof}\n")
+        handle.write(f"issue_title<<{eof}\n{issue_title}\n{eof}\n")
+        handle.write(f"issue_body<<{eof}\n{issue_body}\n{eof}\n")
 
 
 def main() -> None:
@@ -193,13 +199,13 @@ def main() -> None:
     status_output_path = Path(args.status_output)
     status_output_path.parent.mkdir(parents=True, exist_ok=True)
     status_output_path.write_text(
-        build_status_output(upcoming, today, window_end, datetime.utcnow()),
+        build_status_output(upcoming, today, window_end),
         encoding="utf-8",
     )
 
     if args.github_output:
-        title, body, commit_message = build_pr_metadata(upcoming, today, window_end)
-        write_github_output(Path(args.github_output), title, body, commit_message)
+        issue_title, issue_body = build_issue_metadata(upcoming, today, window_end)
+        write_github_output(Path(args.github_output), issue_title, issue_body)
 
 
 if __name__ == "__main__":
