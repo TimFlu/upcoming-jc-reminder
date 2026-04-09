@@ -2,7 +2,7 @@ name: Create upcoming reminder PR
 
 on:
   schedule:
-    - cron: "0 8 * * 1"
+    - cron: "15 12 * * 4"
   workflow_dispatch:
 
 permissions:
