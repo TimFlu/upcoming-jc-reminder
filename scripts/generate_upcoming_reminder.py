@@ -13,7 +13,7 @@ DEFAULT_STATUS_OUTPUT = "reminders/last-run.md"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate reminder files and issue text for upcoming JC presenters."
+        description="Generate reminder files and issue text for weekly JC presenters."
     )
     parser.add_argument("--input", default=DEFAULT_INPUT)
     parser.add_argument("--output", default=DEFAULT_OUTPUT)
@@ -35,8 +35,7 @@ def load_rows(path: Path) -> list[dict[str, str]]:
         if extras:
             paper = str(row.get("Paper", "")).strip()
             extra_text = ", ".join(part.strip() for part in extras if str(part).strip())
-            combined = ", ".join(part for part in [paper, extra_text] if part)
-            row["Paper"] = combined
+            row["Paper"] = ", ".join(part for part in [paper, extra_text] if part)
             row.pop(None, None)
 
     return rows
@@ -55,132 +54,131 @@ def parse_date(value: str) -> date | None:
     return None
 
 
+def week_start(day: date) -> date:
+    return day - timedelta(days=day.weekday())
+
+
+def presenter_line(prefix: str, presenter: dict[str, str | date] | None) -> list[str]:
+    if not presenter:
+        return [f"{prefix}: **No presenter scheduled**"]
+
+    lines = [
+        f"{prefix}: **{presenter['person_name']}**",
+        f"{prefix} date: **{presenter['target_date']}**",
+    ]
+    paper = str(presenter.get("paper_title", "")).strip()
+    if paper:
+        lines.append(f"{prefix} paper / work: **{paper}**")
+    else:
+        lines.append(
+            f"{prefix} paper / work: **Missing. Please specify the paper / work title.**"
+        )
+    return lines
+
+
 def build_upcoming_output(
-    upcoming: list[dict[str, str | int | date]],
-    start: date,
-    end: date,
+    this_week_presenter: dict[str, str | date] | None,
+    next_week_presenter: dict[str, str | date] | None,
+    current_week_start: date,
+    next_week_start: date,
 ) -> str:
     lines = [
-        "# Upcoming reminders",
+        "# Weekly JC reminder",
         "",
-        f"Generated for {start} through {end}.",
-        "",
+        f"This week: {current_week_start} through {current_week_start + timedelta(days=6)}",
     ]
-
-    if not upcoming:
-        lines.append("No upcoming dates in this window.")
-        lines.append("")
-        return "\n".join(lines)
-
-    lines.append("| Date | Presenter | Days remaining |")
-    lines.append("| --- | --- | ---: |")
-    for row in upcoming:
-        lines.append(
-            f"| {row['target_date']} | {row['person_name']} | {row['days_remaining']} |"
-        )
-
-    lines.append("")
-    lines.append("Please review the upcoming presenters and dates.")
+    lines.extend(presenter_line("This week presenter", this_week_presenter))
+    lines.extend(
+        [
+            "",
+            f"Following week: {next_week_start} through {next_week_start + timedelta(days=6)}",
+        ]
+    )
+    lines.extend(presenter_line("Following week presenter", next_week_presenter))
     lines.append("")
     return "\n".join(lines)
 
 
 def build_status_output(
-    future_presenters: list[dict[str, str | int | date]],
-    start: date,
-    end: date,
+    this_week_presenter: dict[str, str | date] | None,
+    next_week_presenter: dict[str, str | date] | None,
+    current_week_start: date,
+    next_week_start: date,
 ) -> str:
     lines = [
         "# Reminder workflow status",
         "",
-        f"Window: {start} through {end}",
+        f"This week starts: {current_week_start}",
+        f"Following week starts: {next_week_start}",
         "",
     ]
-
-    if future_presenters:
-        first = future_presenters[0]
-        lines.append(f"Next presenter: {first['person_name']}")
-        lines.append(f"Next date: {first['target_date']}")
-        paper = str(first.get("paper_title", "")).strip()
-        if paper:
-            lines.append(f"Paper/topic: {paper}")
-        if len(future_presenters) > 1:
-            second = future_presenters[1]
-            lines.append(f"Following presenter: {second['person_name']}")
-            lines.append(f"Following date: {second['target_date']}")
-            second_paper = str(second.get("paper_title", "")).strip()
-            if second_paper:
-                lines.append(f"Following paper/topic: {second_paper}")
-    else:
-        lines.append("Next presenter: none in this window")
-
+    lines.extend(presenter_line("This week presenter", this_week_presenter))
+    lines.append("")
+    lines.extend(presenter_line("Following week presenter", next_week_presenter))
     lines.append("")
     return "\n".join(lines)
 
 
 def build_issue_metadata(
-    future_presenters: list[dict[str, str | int | date]],
-    start: date,
-    end: date,
+    this_week_presenter: dict[str, str | date] | None,
+    next_week_presenter: dict[str, str | date] | None,
+    current_week_start: date,
+    next_week_start: date,
 ) -> tuple[str, str]:
-    if future_presenters:
-        first = future_presenters[0]
-        presenter = str(first["person_name"])
-        target_date = str(first["target_date"])
-        paper = str(first.get("paper_title", "")).strip()
-        title = f"JC reminder: {presenter} on {target_date}"
+    if this_week_presenter:
+        title = (
+            f"JC reminder: {this_week_presenter['person_name']} presents this week "
+            f"on {this_week_presenter['target_date']}"
+        )
+    else:
+        title = (
+            f"JC reminder: no presenter scheduled this week "
+            f"({current_week_start} to {current_week_start + timedelta(days=6)})"
+        )
 
-        body_lines = [
-            f"Next presenter: **{presenter}**",
-            f"Next date: **{target_date}**",
-        ]
+    body_lines = []
+
+    if this_week_presenter:
+        body_lines.append(
+            f"This week, **{this_week_presenter['person_name']}** will present on "
+            f"**{this_week_presenter['target_date']}**."
+        )
+        paper = str(this_week_presenter.get("paper_title", "")).strip()
         if paper:
-            body_lines.append(f"Next paper / work: **{paper}**")
+            body_lines.append(f"The paper / work is **{paper}**.")
         else:
             body_lines.append(
-                "Next paper / work: **Missing. Please specify the paper / work title.**"
+                "The paper / work is **missing** and should be specified."
             )
+    else:
+        body_lines.append("No presenter is scheduled for this week.")
 
-        if len(future_presenters) > 1:
-            second = future_presenters[1]
-            second_presenter = str(second["person_name"])
-            second_date = str(second["target_date"])
-            second_paper = str(second.get("paper_title", "")).strip()
-            body_lines.extend(
-                [
-                    "",
-                    f"Following presenter: **{second_presenter}**",
-                    f"Following date: **{second_date}**",
-                ]
-            )
-            if second_paper:
-                body_lines.append(f"Following paper / work: **{second_paper}**")
-            else:
-                body_lines.append(
-                    "Following paper / work: **Missing. Please specify the paper / work title.**"
-                )
-        body_lines.extend(
-            [
-                "",
-                f"Reminder window: {start} through {end}",
-                "",
-                "Upcoming presenters from the schedule:",
-            ]
+    body_lines.append("")
+
+    if next_week_presenter:
+        body_lines.append(
+            f"Following week, it is **{next_week_presenter['person_name']}**'s turn on "
+            f"**{next_week_presenter['target_date']}**."
         )
-        for row in future_presenters[:5]:
-            line = f"- {row['target_date']}: {row['person_name']}"
-            paper_title = str(row.get("paper_title", "")).strip()
-            if paper_title:
-                line += f" — {paper_title}"
-            body_lines.append(line)
+        next_paper = str(next_week_presenter.get("paper_title", "")).strip()
+        if next_paper:
+            body_lines.append(f"The paper / work is **{next_paper}**.")
+        else:
+            body_lines.append(
+                "The paper / work is **missing** and should be specified."
+            )
+    else:
+        body_lines.append("No presenter is scheduled for the following week.")
 
-        return title, "\n".join(body_lines)
-
-    title = f"No upcoming JC presenter for {start} to {end}"
-    body = (
-        f"No presenter is scheduled in the reminder window from {start} through {end}."
+    body_lines.extend(
+        [
+            "",
+            f"This week window: {current_week_start} to {current_week_start + timedelta(days=6)}",
+            f"Following week window: {next_week_start} to {next_week_start + timedelta(days=6)}",
+        ]
     )
-    return title, body
+
+    return title, "\n".join(body_lines)
 
 
 def write_github_output(path: Path, issue_title: str, issue_body: str) -> None:
@@ -204,45 +202,75 @@ def main() -> None:
         if args.today
         else date.today()
     )
-    window_end = today + timedelta(days=args.lookahead_days)
+    current_week_start = week_start(today)
+    next_week_start = current_week_start + timedelta(days=7)
+    current_week_end = current_week_start + timedelta(days=6)
+    next_week_end = next_week_start + timedelta(days=6)
 
-    upcoming: list[dict[str, str | int | date]] = []
-    future_presenters: list[dict[str, str | int | date]] = []
+    presenters: list[dict[str, str | date]] = []
     for row in rows:
         target_date = parse_date(row.get(args.date_column, ""))
         person_name = str(row.get(args.name_column, "")).strip()
         if target_date is None or not person_name or person_name == "--":
             continue
-        presenter_data = {
-            "target_date": target_date,
-            "person_name": person_name,
-            "days_remaining": (target_date - today).days,
-            "paper_title": str(row.get("Paper", "")).strip(),
-        }
-        if target_date >= today:
-            future_presenters.append(presenter_data)
-        if today <= target_date <= window_end:
-            upcoming.append(presenter_data)
+        presenters.append(
+            {
+                "target_date": target_date,
+                "person_name": person_name,
+                "paper_title": str(row.get("Paper", "")).strip(),
+            }
+        )
 
-    upcoming.sort(key=lambda row: (row["target_date"], row["person_name"]))
-    future_presenters.sort(key=lambda row: (row["target_date"], row["person_name"]))
+    presenters.sort(key=lambda row: (row["target_date"], row["person_name"]))
+
+    this_week_presenter = next(
+        (
+            row
+            for row in presenters
+            if current_week_start <= row["target_date"] <= current_week_end
+        ),
+        None,
+    )
+    next_week_presenter = next(
+        (
+            row
+            for row in presenters
+            if next_week_start <= row["target_date"] <= next_week_end
+        ),
+        None,
+    )
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
-        build_upcoming_output(upcoming, today, window_end),
+        build_upcoming_output(
+            this_week_presenter,
+            next_week_presenter,
+            current_week_start,
+            next_week_start,
+        ),
         encoding="utf-8",
     )
 
     status_output_path = Path(args.status_output)
     status_output_path.parent.mkdir(parents=True, exist_ok=True)
     status_output_path.write_text(
-        build_status_output(future_presenters, today, window_end),
+        build_status_output(
+            this_week_presenter,
+            next_week_presenter,
+            current_week_start,
+            next_week_start,
+        ),
         encoding="utf-8",
     )
 
     if args.github_output:
-        issue_title, issue_body = build_issue_metadata(future_presenters, today, window_end)
+        issue_title, issue_body = build_issue_metadata(
+            this_week_presenter,
+            next_week_presenter,
+            current_week_start,
+            next_week_start,
+        )
         write_github_output(Path(args.github_output), issue_title, issue_body)
 
 

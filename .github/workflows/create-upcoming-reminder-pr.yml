@@ -2,7 +2,7 @@ name: Create upcoming reminder issue
 
 on:
   schedule:
-    - cron: "0 7 * * *"
+    - cron: "0 7 * * 3"
   workflow_dispatch:
 
 permissions:

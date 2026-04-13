@@ -1,6 +1,10 @@
 # Reminder workflow status
 
-Generated at: 2026-04-09 12:31:29 UTC
-Window: 2026-04-09 through 2026-04-16
+This week starts: 2026-04-13
+Following week starts: 2026-04-20
 
-Next presenter: none in this window
+This week presenter: **Alceu**
+This week presenter date: **2026-04-17**
+This week presenter paper / work: **Missing. Please specify the paper / work title.**
+
+Following week presenter: **No presenter scheduled**

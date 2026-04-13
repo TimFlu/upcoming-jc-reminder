@@ -1,6 +1,6 @@
 # JC Test Scheduling
 
-This repository exists only to open a GitHub issue for the upcoming Journal Club presenter.
+This repository exists only to open a GitHub issue on Wednesday morning for the Journal Club presenter of the current week and the following week.
 
 ## Source file
 
@@ -19,11 +19,11 @@ Rows with presenter `--` are ignored.
 The script at [scripts/generate_upcoming_reminder.py](/Users/tflueh/Documents/Playground/scripts/generate_upcoming_reminder.py):
 
 - reads the CSV schedule
-- finds presenters in the next 7 days
+- finds the presenter for this calendar week and the following calendar week
 - writes local reminder files for inspection
 - generates an issue title and issue body for GitHub Actions
 
-The workflow at [.github/workflows/create-upcoming-reminder-pr.yml](/Users/tflueh/Documents/Playground/.github/workflows/create-upcoming-reminder-pr.yml) runs every day at `07:00 UTC`, which is `09:00 CEST` in Zurich during summer time, and creates a fresh issue labeled `jc-reminder`.
+The workflow at [.github/workflows/create-upcoming-reminder-pr.yml](/Users/tflueh/Documents/Playground/.github/workflows/create-upcoming-reminder-pr.yml) runs every Wednesday at `07:00 UTC`, which is `09:00 CEST` in Zurich during summer time, and creates a fresh issue labeled `jc-reminder`.
 
 ## Optional repository variables
 
