@@ -35,6 +35,7 @@ jobs:
           --github-output "$GITHUB_OUTPUT"
 
       - name: Create reminder issue
+        if: steps.reminder.outputs.skip_issue != 'true'
         uses: actions/github-script@v7
         env:
           ISSUE_TITLE: ${{ steps.reminder.outputs.issue_title }}

@@ -188,6 +188,11 @@ def write_github_output(path: Path, issue_title: str, issue_body: str) -> None:
         handle.write(f"issue_body<<{eof}\n{issue_body}\n{eof}\n")
 
 
+def write_skip_issue_output(path: Path) -> None:
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write("skip_issue=true\n")
+
+
 def main() -> None:
     args = parse_args()
     rows = load_rows(Path(args.input))
@@ -265,13 +270,17 @@ def main() -> None:
     )
 
     if args.github_output:
-        issue_title, issue_body = build_issue_metadata(
-            this_week_presenter,
-            next_week_presenter,
-            current_week_start,
-            next_week_start,
-        )
-        write_github_output(Path(args.github_output), issue_title, issue_body)
+        github_output_path = Path(args.github_output)
+        if not this_week_presenter and not next_week_presenter:
+            write_skip_issue_output(github_output_path)
+        else:
+            issue_title, issue_body = build_issue_metadata(
+                this_week_presenter,
+                next_week_presenter,
+                current_week_start,
+                next_week_start,
+            )
+            write_github_output(github_output_path, issue_title, issue_body)
 
 
 if __name__ == "__main__":
