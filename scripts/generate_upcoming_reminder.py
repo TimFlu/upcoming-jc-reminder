@@ -20,6 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--status-output", default=DEFAULT_STATUS_OUTPUT)
     parser.add_argument("--date-column", default="Date")
     parser.add_argument("--name-column", default="Presenter")
+    parser.add_argument("--paper-column", default="Paper")
     parser.add_argument("--lookahead-days", type=int, default=7)
     parser.add_argument("--today", default=None)
     parser.add_argument("--github-output", default=None)
@@ -56,6 +57,11 @@ def parse_date(value: str) -> date | None:
 
 def week_start(day: date) -> date:
     return day - timedelta(days=day.weekday())
+
+
+def normalize_paper(value: str | None) -> str:
+    paper = (value or "").strip()
+    return "" if paper.lower() in {"tbd", "tba"} else paper
 
 
 def presenter_line(prefix: str, presenter: dict[str, str | date] | None) -> list[str]:
@@ -222,7 +228,7 @@ def main() -> None:
             {
                 "target_date": target_date,
                 "person_name": person_name,
-                "paper_title": str(row.get("Paper", "")).strip(),
+                "paper_title": normalize_paper(row.get(args.paper_column, "")),
             }
         )
 

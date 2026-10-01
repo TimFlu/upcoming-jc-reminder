@@ -22,15 +22,21 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Download schedule from Google Sheets
+        env:
+          SCHEDULE_URL: https://docs.google.com/spreadsheets/d/1R1OB0Sn1mAElTZ_H9qQSIk-vYYGkwVcdAFz_QPglxNM/export?format=csv
+        run: curl --fail --location --retry 3 --max-time 60 "$SCHEDULE_URL" --output "$RUNNER_TEMP/jc-schedule.csv"
+
       - name: Generate upcoming reminder text
         id: reminder
         run: >
           python scripts/generate_upcoming_reminder.py
-          --input "${{ vars.REMINDER_INPUT_PATH || 'data/JC test schedule.csv' }}"
+          --input "$RUNNER_TEMP/jc-schedule.csv"
           --output "${{ vars.REMINDER_OUTPUT_PATH || 'reminders/upcoming.md' }}"
           --status-output "${{ vars.REMINDER_STATUS_OUTPUT_PATH || 'reminders/last-run.md' }}"
           --date-column "${{ vars.REMINDER_DATE_COLUMN || 'Date' }}"
           --name-column "${{ vars.REMINDER_NAME_COLUMN || 'Presenter' }}"
+          --paper-column "Paper or topic"
           --lookahead-days "${{ vars.REMINDER_LOOKAHEAD_DAYS || '7' }}"
           --github-output "$GITHUB_OUTPUT"
 
